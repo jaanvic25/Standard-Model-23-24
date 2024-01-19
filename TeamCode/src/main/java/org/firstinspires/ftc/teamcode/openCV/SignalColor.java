@@ -5,6 +5,8 @@ public enum SignalColor {
     PURPLE,
     GREEN,
     YELLOW,
+    BLUE,
+    RED,
     IDK
 }
 

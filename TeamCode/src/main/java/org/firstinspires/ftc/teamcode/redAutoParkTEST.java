@@ -33,12 +33,15 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.teamcode.openCV.SignalColor;
 import org.firstinspires.ftc.teamcode.openCV.camera;
+import org.firstinspires.ftc.teamcode.util.Encoder;
 import org.openftc.easyopencv.OpenCvCamera;
 import org.openftc.easyopencv.OpenCvCameraFactory;
 import org.openftc.easyopencv.OpenCvCameraRotation;
@@ -83,57 +86,38 @@ public class redAutoParkTEST extends LinearOpMode {
     private DcMotor leftBack = null;
     private DcMotor rightFront = null;
     private DcMotor rightBack = null;
-    private DcMotor liftMotor = null;
+    private DcMotor liftMotorE = null;
+    private DcMotor liftMotorT = null;
+
+    private Encoder xrEncoder = null;
+    private Encoder xlEncoder = null;
+    private Encoder frontEncoder = null;
     private OpenCvWebcam webcam;
     private camera pipeline;
     private SignalColor color;
-    private SignalColor ifYellow;
+    private int zone;
 
-    Servo servo_claw;
-    Servo servo_lift_r;
-    Servo servo_lift_l;
-    double servo_claw_pos;
-    double servo_lift_l_pos;
-    double servo_lift_r_pos;
+    Servo servo_claw; //open and close
+    double servo_claw_pos = SERVO_CLAW_GRAB;
     //in
-    static final double SERVO_CLAW_INIT = .2;
+    static final double SERVO_CLAW_INIT = .52;
     //out
-    static final double SERVO_CLAW_GRAB = .47;
-
-    static final double SERVO_LIFT_R_FRONT = 0;
-    static final double SERVO_LIFT_R_FMID = .2;
-    static final double SERVO_LIFT_R_BACK = .9;
-    static final double SERVO_LIFT_R_BMID = .5;
-
-    static final double SERVO_LIFT_L_FRONT = 1;
-    static final double SERVO_LIFT_L_FMID = .9;
-    static final double SERVO_LIFT_L_BACK = .2;
-    static final double SERVO_LIFT_L_BMID = .6;
-
+    static final double SERVO_CLAW_GRAB = .64;
 
     private Thread telemetryH = new Thread() {
         @Override
         public void run() {
             while (opModeInInit() || opModeIsActive()) {
                 telemetry.addData("rf", rightFront.getCurrentPosition());
+                telemetry.addData("x1", xrEncoder.getCurrentPosition());
+                telemetry.addData("x2", xlEncoder.getCurrentPosition());
+                telemetry.addData("y", frontEncoder.getCurrentPosition());
                 telemetry.addData("color", pipeline.getBiggestArea());
+                telemetry.addData("zone",  pipeline.getZone());
                 telemetry.update();
             }
         }
     };
-    // Calculate the COUNTS_PER_INCH for your specific drive train.
-    // Go to your motor vendor website to determine your motor's COUNTS_PER_MOTOR_REV
-    // For external drive gearing, set DRIVE_GEAR_REDUCTION as needed.
-    // For example, use a value of 2.0 for a 12-tooth spur gear driving a 24-tooth spur gear.
-    // This is gearing DOWN for less speed and more torque.
-    // For gearing UP, use a gear ratio less than 1.0. Note this will affect the direction of wheel rotation.
-    static final double COUNTS_PER_MOTOR_REV = 1440;    // eg: TETRIX Motor Encoder
-    static final double DRIVE_GEAR_REDUCTION = 1.0;     // No External Gearing.
-    static final double WHEEL_DIAMETER_INCHES = 4.0;     // For figuring circumference
-    static final double COUNTS_PER_INCH = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
-            (WHEEL_DIAMETER_INCHES * 3.1415);
-    static final double DRIVE_SPEED = 0.6;
-    static final double TURN_SPEED = 0.5;
 
 
     @Override
@@ -165,35 +149,38 @@ public class redAutoParkTEST extends LinearOpMode {
         }
 
         // Initialize the drive system variables.
-        leftFront = hardwareMap.get(DcMotor.class, "leftFront");
+        leftFront  = hardwareMap.get(DcMotor.class, "leftFront");//xr odometry
         leftBack = hardwareMap.get(DcMotor.class, "leftBack");
-        rightFront = hardwareMap.get(DcMotor.class, "rightFront");
-        rightBack = hardwareMap.get(DcMotor.class, "rightBack");
-        liftMotor = hardwareMap.get(DcMotor.class, "lift_motor");
-        servo_claw = hardwareMap.servo.get("servo_claw");
-        servo_lift_l = hardwareMap.servo.get("servo_lift_l");
-        servo_lift_r = hardwareMap.servo.get("servo_lift_r");
+        rightFront  = hardwareMap.get(DcMotor.class, "rightFront");//xl odometry
+        rightBack = hardwareMap.get(DcMotor.class, "rightBack");//y odometry
+        liftMotorE = hardwareMap.get(DcMotor.class, "liftMotorE");
+        liftMotorT = hardwareMap.get(DcMotor.class, "liftMotorT");
+        servo_claw = hardwareMap.get(Servo.class, "servo_claw");
 
-        // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
-        // When run, this OpMode should start both motors driving forward. So adjust these two lines based on your first test drive.
-        leftFront.setDirection(DcMotor.Direction.FORWARD);
-        leftBack.setDirection(DcMotor.Direction.FORWARD);
+        servo_claw.setPosition(servo_claw_pos);
+
+
+
+        xrEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "leftFront"));
+        xlEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "rightFront"));
+        frontEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "rightBack"));
+
+        int xrPos = xrEncoder.getCurrentPosition();
+        int xlPos = xlEncoder.getCurrentPosition();
+        int frontPos = frontEncoder.getCurrentPosition();
+
+
+        leftFront.setDirection(DcMotor.Direction.REVERSE);
+        leftBack.setDirection(DcMotor.Direction.REVERSE);
         rightFront.setDirection(DcMotor.Direction.FORWARD);
         rightBack.setDirection(DcMotor.Direction.FORWARD);
 
-        liftMotor.setTargetPosition(0);
-        liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-//        leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-//        leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-//        rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-//        rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
 
         leftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         leftBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        liftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -208,103 +195,56 @@ public class redAutoParkTEST extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        servo_claw_pos = SERVO_CLAW_GRAB;
-        servo_claw.setPosition(servo_claw_pos);
-        servo_lift_l_pos = SERVO_LIFT_L_FRONT;
-        servo_lift_r_pos = SERVO_LIFT_R_FRONT;
-        servo_lift_l.setPosition(servo_lift_l_pos);
-        servo_lift_r.setPosition(servo_lift_r_pos);
         color = pipeline.getBiggestArea();
+        zone = pipeline.getZone();
 
+        liftMotorT.setTargetPosition(-150);
+        liftMotorT.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        liftMotorT.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        liftMotorE.setTargetPosition(10); //TODO: FIX
+        liftMotorE.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        liftMotorE.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        while(opModeIsActive()){
 
-        //add in camera code
+            if (true) {
+                forwardDrive(.4,2500);
+                if(zone == 0){
+                    strafeRight(.3, 500);
+                    telemetry.addData("posr", xrEncoder.getCurrentPosition());
+                    telemetry.addData("posl", xlEncoder.getCurrentPosition());
+                    telemetry.addData("posy", frontEncoder.getCurrentPosition());
+                } else if(zone == 1){
+                    forwardDrive(.4, 300);
+                } else if(zone == 2){
+                    strafeLeft(.4, 300);
+                }
+                liftMotorE.setTargetPosition(10); //ranbdom val, dont use this!!!!
+                liftMotorT.setTargetPosition(-200); //random value
 
-        forwardDrive(.2, 1200);
-        strafeRight(.4, 1725);
-        sleep(1000);
+                forwardDrive(-.4, 150);
+                //add in parking
+                color = SignalColor.IDK;
+                leftFront.setPower(0);
+                leftBack.setPower(0);
+                rightBack.setPower(0);
+                rightFront.setPower(0);
+            } else if (color == SignalColor.IDK) {
+                leftFront.setPower(0);
+                leftBack.setPower(0);
+                rightBack.setPower(0);
+                rightFront.setPower(0);
+            }
 
-        ifYellow = pipeline.getIfYellow();
-
-        //if (ifYellow == SignalColor.YELLOW){
-            strafeLeft(.2, 200);
-            forwardDrive(-.2, 250);
-            servo_lift_l_pos = SERVO_LIFT_L_BMID;
-            servo_lift_r_pos = SERVO_LIFT_R_BMID;
-            servo_lift_l.setPosition(servo_lift_l_pos);
-            servo_lift_r.setPosition(servo_lift_r_pos);
-
-            liftMotor.setTargetPosition(691);
-            liftMotor.setDirection(DcMotor.Direction.REVERSE);
-            liftMotor.setPower(.8);
-
-            sleep(2000);
-            forwardDrive(.2, 200);
-
-            servo_claw_pos = SERVO_CLAW_INIT;
+            strafeRight(.6, 1500);
             servo_claw.setPosition(servo_claw_pos);
-            sleep(1000);
-            forwardDrive(-.2, 200);
-            //reset
-            liftMotor.setDirection(DcMotor.Direction.FORWARD);
-            liftMotor.setPower(.15);
-            liftMotor.setPower(0);
-            sleep(300);
-            servo_lift_l_pos = SERVO_LIFT_L_FRONT;
-            servo_lift_r_pos = SERVO_LIFT_R_FRONT;
-            servo_lift_l.setPosition(servo_lift_l_pos);
-            servo_lift_r.setPosition(servo_lift_r_pos);
-            forwardDrive(.2, 200);
 
+            telemetry.addData("Path", "Complete");
 
-       // }
-
-        if (color == SignalColor.ORANGE) {
-            //parking location one -- straight left
-          //  forwardDrive(.2, 1150);
-            strafeLeft(.4, 2875); //go all the way left
-//            color = SignalColor.IDK;
-            leftFront.setPower(0);
-            leftBack.setPower(0);
-            rightBack.setPower(0);
-            rightFront.setPower(0);
-
-        } else if (color == SignalColor.GREEN) {
-            //parking location two -- straight
-          //  forwardDrive(.2, 1150);
-            strafeLeft(.4, 1725); //go back to beginning
-//            color = SignalColor.IDK;
-            leftFront.setPower(0);
-            leftBack.setPower(0);
-            rightBack.setPower(0);
-            rightFront.setPower(0);
-        } else if (color == SignalColor.PURPLE) {
-            //three straight right
-//            forwardDrive(.2, 1150);
-//            strafeRight(.4, 1150);
-            strafeLeft(.4, 375); //random value
-//            color = SignalColor.IDK;
-            leftFront.setPower(0);
-            leftBack.setPower(0);
-            rightBack.setPower(0);
-            rightFront.setPower(0);
-        } else if (color == SignalColor.IDK) {
-            color = SignalColor.GREEN;
-        }
-
-
-
-//         Step through each leg of the path,
-//         Note: Reverse movement is obtained by setting a negative distance (not speed)
-//         encoderDrive(DRIVE_SPEED,  0,  0, 20, -24, 5);  // S1: Forward 47 Inches with 5 Sec timeout
-//        encoderDrive(TURN_SPEED, 0, 0, 20, 0, 4.0);
-//        encoderDrive(DRIVE_SPEED, 20, 0, 20, 0, 4.0);  // S3: Reverse 24 Inches with 4 Sec timeout
-
-        telemetry.addData("Path", "Complete");
-        telemetry.update();
-        sleep(1000);  // pause to display final telemetry message.
-    }
+            telemetry.update();
+            sleep(1000);  // pause to display final telemetry message.
+        }}
 
     /*
      *  Method to perform a relative move, based on encoder counts.
@@ -314,96 +254,20 @@ public class redAutoParkTEST extends LinearOpMode {
      *  2) Move runs out of time
      *  3) Driver stops the opmode running.
      */
-    public void encoderDrive(double speed,
-                             double leftFInches, double leftBInches, double rightFInches, double rightBInches,
-                             double timeoutS) {
-        int newLeftFTarget;
-        int newLeftBTarget;
-        int newRightFTarget;
-        int newRightBTarget;
 
-        // Ensure that the opmode is still active
-        if (opModeIsActive()) {
-
-            // Determine new target position, and pass to motor controller
-//            newLeftFTarget = leftFront.getCurrentPosition() + (int)(leftFInches * COUNTS_PER_INCH);
-//            newLeftBTarget = leftBack.getCurrentPosition() + (int)(leftBInches * COUNTS_PER_INCH);
-//            newRightFTarget = rightFront.getCurrentPosition() + (int)(rightFInches * COUNTS_PER_INCH);
-//            newRightBTarget = rightBack.getCurrentPosition() + (int)(rightBInches * COUNTS_PER_INCH);
-//            leftFront.setTargetPosition(newLeftFTarget);
-//            leftBack.setTargetPosition(newLeftBTarget);
-//            rightFront.setTargetPosition(newRightFTarget);
-//            rightBack.setTargetPosition(newRightBTarget);
-
-            // Turn On RUN_TO_POSITION
-
-//            leftFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//            leftBack.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//            rightFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//            rightBack.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-
-            // reset the timeout time and start motion.
-            runtime.reset();
-            double maxSpeed = 0.85;
-
-            leftFront.setPower(Math.abs(speed) * maxSpeed);
-            leftBack.setPower(Math.abs(speed) * maxSpeed);
-            rightFront.setPower(Math.abs(speed) * maxSpeed);
-            rightBack.setPower(Math.abs(speed) * maxSpeed);
-
-            // keep looping while we are still active, and there is time left, and both motors are running.
-            // Note: We use (isBusy() && isBusy()) in the loop test, which means that when EITHER motor hits
-            // its target position, the motion will stop.  This is "safer" in the event that the robot will
-            // always end the motion as soon as possible.
-            // However, if you require that BOTH motors have finished their moves before the robot continues
-            // onto the next step, use (isBusy() || isBusy()) in the loop test.
-            while (opModeIsActive() &&
-                    (runtime.seconds() < timeoutS) &&
-                    (leftFront.isBusy() && leftBack.isBusy() && rightFront.isBusy() && rightBack.isBusy())) {
-
-                // Display it for the driver.
-                //telemetry.addData("Running to",  " %7d :%7d", newLeftFTarget, newLeftBTarget, newRightFTarget, newRightBTarget);
-                telemetry.addData("Currently at", " at %7d :%7d",
-                        leftBack.getCurrentPosition(),
-                        rightFront.getCurrentPosition());
-                if(ifYellow == SignalColor.YELLOW ){
-                    telemetry.addData("see yellow", "\" at %7d :%7d\",", ifYellow);
-                }
-                telemetry.update();
-            }
-
-            // Stop all motion;
-            leftFront.setPower(0);
-            leftBack.setPower(0);
-            rightFront.setPower(0);
-            rightBack.setPower(0);
-
-            // Turn off RUN_TO_POSITION
-            leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-            // sleep(250);   // optional pause after each move.
-        }
-    }
 
     public void forwardDrive(double power, int position) {
-
-        rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         System.out.println("in forward drive");
 
         leftFront.setPower(power);
         leftBack.setPower(power);
-        rightBack.setPower(-power);
-        rightFront.setPower(-power);
+        rightBack.setPower(power);
+        rightFront.setPower(power);
 
 
         //wait until reaches position
-        while (Math.abs(rightFront.getCurrentPosition()) < position && opModeIsActive()) {
+        while (Math.abs(xrEncoder.getCurrentPosition()) < position && opModeIsActive()) {
             telemetry.addData("position: ", rightFront.getCurrentPosition());
             telemetry.update();
 
@@ -429,7 +293,7 @@ public class redAutoParkTEST extends LinearOpMode {
         rightFront.setPower(-power);
 
         //wait until finishes turning
-        while (Math.abs(rightFront.getCurrentPosition()) < position && opModeIsActive()) {
+        while (Math.abs(xrEncoder.getCurrentPosition()) < position && opModeIsActive()) {
         }
 
         leftFront.setPower(0);
@@ -450,7 +314,7 @@ public class redAutoParkTEST extends LinearOpMode {
         rightFront.setPower(power);
 
         //wait until finishes turning
-        while (Math.abs(rightFront.getCurrentPosition()) < position && opModeIsActive()) {
+        while (Math.abs(xrEncoder.getCurrentPosition()) < position && opModeIsActive()) {
         }
 
         leftFront.setPower(0);

@@ -33,8 +33,8 @@ public class servoTEST extends OpMode
 
     Servo servo_claw;
     double servo_claw_pos;
-    static final double SERVO_CLAW_INIT = .2;
-    static final double SERVO_CLAW_GRAB = .5;
+    static final double SERVO_CLAW_INIT = .52;
+    static final double SERVO_CLAW_GRAB = .64;
 
 
     /*

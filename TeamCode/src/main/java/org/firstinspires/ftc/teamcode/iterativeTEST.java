@@ -32,11 +32,14 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 /**
  * This file contains an example of an iterative (Non-Linear) "OpMode".
@@ -58,36 +61,64 @@ public class iterativeTEST extends OpMode
 {
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
-    //    port 1
+    //    port 0
     private DcMotor leftFront = null;
     //    port 3
     private DcMotor leftBack = null;
-    //    port 0
+    //    port 1
     private DcMotor rightFront = null;
     //    port 2
     private DcMotor rightBack = null;
+    //    expansion hub port 0
+    private DcMotor liftMotorT = null; //turn
+    //    expansion hub port 1
+    private DcMotor liftMotorE = null; //extend
+    //port 0 of expansion servo
+    Servo servo_plane;
+    double servo_plane_pos;
+    //port 1
+    Servo servo_door_r;
+    double servo_door_rpos;
+    //port 3
+    Servo servo_door_l;
+    double servo_door_lpos;
+    //port 2
+    CRServo servo_in_r;
+    double servo_in_rpow;
+    //port 5
+    CRServo servo_in_l;
+    double servo_in_lpow;
+    //port 0
+    Servo servo_spin_r;
+    double servo_spin_rpos;
+    //port 4
+    Servo servo_spin_l;
+    double servo_spin_lpos;
 
     //TODO: fix errors
-  //  private DcMotor liftMotor = null;
-
-    private DcMotor drone1 = null;
-
-    private DcMotor drone2 = null;
-
-    Servo servo_claw; //open and close
-    Servo servo_claw_y; //up and down
-
-    double servo_claw_pos;
-    double servo_claw_y_pos;
 
     //in
-    static final double SERVO_CLAW_INIT = .2;
+    static final double SERVO_DOOR_RINIT = .75;
     //out
-    static final double SERVO_CLAW_GRAB = .472;
+    static final double SERVO_DOOR_RGRAB = .27;
 
-    static final double SERVO_CLAW_UP = .2; // random nums
-    static final double SERVO_CLAW_DOWN = .47;
+    //in
+    static final double SERVO_DOOR_LINIT = .23;
+    //out
+    static final double SERVO_DOOR_LGRAB = .64;
 
+    //in
+    static final double SERVO_PLANE_INIT = .4;
+    //out
+    static final double SERVO_PLANE_OUT = 0;
+
+    static final double SERVO_SPIN_RUP = .99;
+    static final double SERVO_SPIN_LUP = .5;
+
+    static final double SERVO_SPIN_RFLAT = .3;
+    static final double SERVO_SPIN_LFLAT = .8;
+
+    static final double SERVO_STILL = 0;
     /*
      * Code to run ONCE when the driver hits INIT
      */
@@ -98,20 +129,41 @@ public class iterativeTEST extends OpMode
         // Initialize the hardware variables. Note that the strings used here as parameters
         // to 'get' must correspond to the names assigned during the robot configuration
         // step (using the FTC Robot Controller app on the phone).
-        leftFront  = hardwareMap.get(DcMotor.class, "leftFront");
+        leftFront  = hardwareMap.get(DcMotor.class, "leftFront"); //xr odometry
         leftBack = hardwareMap.get(DcMotor.class, "leftBack");
-        rightFront  = hardwareMap.get(DcMotor.class, "rightFront");
-        rightBack = hardwareMap.get(DcMotor.class, "rightBack");
-        //liftMotor = hardwareMap.get(DcMotor.class, "lift_motor");
-//        drone1 = hardwareMap.get(DcMotor.class, "drone1");
-//        drone2 = hardwareMap.get(DcMotor.class, "drone2");
-        //FIX THESE
+        rightFront  = hardwareMap.get(DcMotor.class, "rightFront"); //xl odometry
+        rightBack = hardwareMap.get(DcMotor.class, "rightBack"); //y odometry
+        liftMotorT = hardwareMap.get(DcMotor.class, "liftMotorT");
+        liftMotorE = hardwareMap.get(DcMotor.class, "liftMotorE");
 
-//        servo_claw = hardwareMap.servo.get("servo_claw");
-//        servo_claw_y = hardwareMap.servo.get("servo_claw_y");
-//        servo_claw_pos = SERVO_CLAW_INIT;
-//        servo_claw_y_pos = SERVO_CLAW_DOWN;
+        servo_door_r = hardwareMap.servo.get("servoDoorR");
+        servo_door_rpos = SERVO_DOOR_RGRAB;
+        servo_door_r.setPosition(servo_door_rpos);
 
+        servo_door_l = hardwareMap.servo.get("servoDoorL");
+        servo_door_lpos = SERVO_DOOR_LGRAB;
+        servo_door_l.setPosition(servo_door_lpos);
+
+        servo_in_r = hardwareMap.crservo.get("servoInR");
+        servo_in_rpow = SERVO_STILL;
+        servo_in_r.setPower(servo_in_rpow);
+
+        servo_in_l = hardwareMap.crservo.get("servoInL");
+        servo_in_lpow = SERVO_STILL;
+        servo_in_l.setPower(servo_in_lpow);
+
+        servo_spin_r = hardwareMap.servo.get("servoSpinR");
+        servo_spin_r.setDirection(Servo.Direction.REVERSE);
+        servo_spin_rpos = SERVO_SPIN_RFLAT;
+        servo_spin_r.setPosition(servo_spin_rpos);
+
+        servo_spin_l = hardwareMap.servo.get("servoSpinL");
+        servo_spin_lpos = SERVO_SPIN_LFLAT;
+        servo_spin_l.setPosition(servo_spin_lpos);
+
+        servo_plane = hardwareMap.servo.get("servo_plane");
+        servo_plane_pos = SERVO_PLANE_INIT;
+        servo_plane.setPosition(servo_plane_pos);
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
@@ -119,28 +171,30 @@ public class iterativeTEST extends OpMode
         leftBack.setDirection(DcMotor.Direction.FORWARD);
         rightFront.setDirection(DcMotor.Direction.FORWARD);
         rightBack.setDirection(DcMotor.Direction.FORWARD);
-       // liftMotor.setDirection(DcMotor.Direction.REVERSE);
+        liftMotorT.setDirection(DcMotor.Direction.FORWARD);
+        liftMotorE.setDirection(DcMotor.Direction.FORWARD);
 //        drone1.setDirection(DcMotor.Direction.FORWARD);
 //        drone2.setDirection(DcMotor.Direction.FORWARD);
 
-//        servo_claw.setPosition(servo_claw_pos);
-//        servo_claw_y.setPosition(servo_claw_y_pos);
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-       // liftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        liftMotorT.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        liftMotorE.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 //        drone1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 //        drone2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
 //        liftMotor.setTargetPosition(0);
 //        liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
 //        liftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        liftMotorT.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        liftMotorE.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
 
         // Tell the driver that initialization is complete.
@@ -173,9 +227,11 @@ public class iterativeTEST extends OpMode
         double rightFrontPower;
         double rightBackPower;
 
-        //double liftPower;
+        double liftPowerT;
+        double liftPowerE;
 
-        final double JOYSTICK_SEN = .2;
+        final double JOYSTICK_SEN = .007;
+        final double JOYSTICK_SENTEST = .005; //made really low might not work
         // if mathabs < joystick -> (?) 0 else (:) set to leftstick
 
         double lx = Math.abs(gamepad1.left_stick_x)< JOYSTICK_SEN ? 0 : gamepad1.left_stick_x;
@@ -183,55 +239,89 @@ public class iterativeTEST extends OpMode
         double rx = Math.abs(gamepad1.right_stick_x)< JOYSTICK_SEN ? 0 : gamepad1.right_stick_x;
         //rx is strafing
         double ry = Math.abs(gamepad1.right_stick_y)< JOYSTICK_SEN ? 0 : gamepad1.right_stick_y;
+        //llx
+        double rrx = Math.abs(gamepad2.left_stick_x)< JOYSTICK_SENTEST ? 0 : gamepad2.left_stick_x;
+        //^^turn
+        double rry = Math.abs(gamepad2.right_stick_y)< JOYSTICK_SENTEST ? 0 : gamepad2.right_stick_y;
+        //^^extend
+
         //front and back
         //two motors spinning very fast opp directions
         //two servos for claw
-//        if (gamepad2.x) {
-//            servo_claw_pos = SERVO_CLAW_INIT;
-//        }
-//        if (gamepad2.b) {
-//            servo_claw_pos = SERVO_CLAW_GRAB;
-//        }
-//        if (gamepad2.y) {
-//            servo_claw_y_pos = SERVO_CLAW_UP;
-//        }
-//        if (gamepad2.a) {
-//            servo_claw_y_pos = SERVO_CLAW_DOWN;
-//        }
-//        servo_claw.setPosition(servo_claw_pos);
-//        servo_claw_y.setPosition(servo_claw_y_pos);
+        if (gamepad2.x) {
+            telemetry.addData("gamepadx", "init");
+            servo_door_rpos = SERVO_DOOR_RINIT;
+            servo_door_lpos = SERVO_DOOR_LINIT;
+        }
+        if (gamepad2.b) {
+            servo_door_rpos = SERVO_DOOR_RGRAB;
+            servo_door_lpos = SERVO_DOOR_LGRAB;
+            telemetry.addData("gamepadb", "grab");
+        }
+        if (gamepad2.a) {
+            servo_plane_pos = SERVO_PLANE_OUT;
+            telemetry.addData("gamepadb", "planein");
+        }
+        if (gamepad2.y) {
+            servo_plane_pos = SERVO_PLANE_INIT;
+            telemetry.addData("gamepady", "planeout");
+        }
 
-//        if (gamepad2.left_bumper) {
-//            liftMotor.setTargetPosition(681);
-//            liftMotor.setDirection(DcMotor.Direction.REVERSE);
-//            liftMotor.setPower(.15); //shld b 1 but for testing low
-//        } else if (gamepad2.right_bumper) {
-//            liftMotor.setDirection(DcMotor.Direction.FORWARD);
-//            liftMotor.setPower(.15);
-//        } else {
-//            liftMotor.setPower(0);
-//        }
+        if (gamepad1.a) {
+            telemetry.addData("gamepada", "toggle intake");
 
-//        if (gamepad1.a) {
-//            drone1.setPower(-1);
-//            drone2.setPower(1);
-//        } else {
-//            drone1.setPower(0);
-//            drone2.setPower(0);
-//        }
+            servo_in_rpow = -.7;
+            servo_in_lpow = .7;
 
+        }
+
+        if (gamepad1.y) {
+            telemetry.addData("gamepadb", servo_spin_rpos);
+            servo_spin_rpos = SERVO_SPIN_RFLAT;
+            servo_spin_lpos = SERVO_SPIN_LFLAT;
+        }
+
+        if (gamepad1.x) {
+            telemetry.addData("gamepadx", servo_spin_rpos);
+            servo_spin_rpos = SERVO_SPIN_RUP;
+            servo_spin_lpos = SERVO_SPIN_LUP;
+        }
+
+        if (gamepad1.b) {
+            telemetry.addData("gamepadx", "spinning other way?");
+            servo_in_rpow = SERVO_STILL;
+            servo_in_lpow = SERVO_STILL;
+        }
+
+        servo_door_r.setPosition(servo_door_rpos);
+        servo_door_l.setPosition(servo_door_lpos);
+
+        servo_in_r.setPower(servo_in_rpow);
+        servo_in_l.setPower(servo_in_lpow);
+
+        servo_spin_r.setPosition(servo_spin_rpos);
+        servo_spin_l.setPosition(servo_spin_lpos);
+
+        telemetry.addData("Servo intake power:", servo_door_rpos);
+        servo_plane.setPosition(servo_plane_pos);
 
         leftBackPower    = Range.clip(-lx - rx - ry, -1.0, 1.0);
         leftFrontPower    = Range.clip(-lx + rx - ry, -1.0, 1.0);
         rightFrontPower   = Range.clip(-lx + rx + ry, -1.0, 1.0);
         rightBackPower   = Range.clip(-lx - rx + ry, -1.0, 1.0) ;
+        liftPowerT = Range.clip(rrx, -1.0, 1.0);
+        liftPowerE = Range.clip(rry, -1.0, 1.0);
+
 
         // Send calculated power to wheels
-        double maxSpeed =0.9;
+        double maxSpeed =0.55;
         leftFront.setPower(leftFrontPower*maxSpeed);
         leftBack.setPower(leftBackPower*maxSpeed);
         rightFront.setPower(rightFrontPower*maxSpeed);
         rightBack.setPower(rightBackPower*maxSpeed);
+        liftMotorT.setPower(liftPowerT*.4);
+        liftMotorE.setPower(liftPowerE*.4);
+
 
         // Show the elapsed game time and wheel power.
         telemetry.addData("Status", "Run Time: " + runtime.toString());
@@ -240,7 +330,9 @@ public class iterativeTEST extends OpMode
         telemetry.addData("rf", rightFront.getCurrentPosition());
         telemetry.addData("lb", leftBack.getCurrentPosition());
         telemetry.addData("rb", rightBack.getCurrentPosition());
-       // telemetry.addData("LIFT", liftMotor.getCurrentPosition());s
+        telemetry.addData("LIFT turn", liftMotorT.getCurrentPosition());
+        telemetry.addData("LIFT extend", liftMotorE.getCurrentPosition());
+
 
 
         telemetry.update();
