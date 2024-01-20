@@ -105,7 +105,7 @@ public class iterativeTEST extends OpMode
     //in
     static final double SERVO_DOOR_LINIT = .23;
     //out
-    static final double SERVO_DOOR_LGRAB = .64;
+    static final double SERVO_DOOR_LGRAB = .9;
 
     //in
     static final double SERVO_PLANE_INIT = .4;
@@ -113,10 +113,10 @@ public class iterativeTEST extends OpMode
     static final double SERVO_PLANE_OUT = 0;
 
     static final double SERVO_SPIN_RUP = .99;
-    static final double SERVO_SPIN_LUP = .5;
+    static final double SERVO_SPIN_LUP = .3;
 
     static final double SERVO_SPIN_RFLAT = .3;
-    static final double SERVO_SPIN_LFLAT = .8;
+    static final double SERVO_SPIN_LFLAT = .475;
 
     static final double SERVO_STILL = 0;
     /*
@@ -270,8 +270,8 @@ public class iterativeTEST extends OpMode
         if (gamepad1.a) {
             telemetry.addData("gamepada", "toggle intake");
 
-            servo_in_rpow = -.7;
-            servo_in_lpow = .7;
+            servo_in_rpow = -.85;
+            servo_in_lpow = .85;
 
         }
 
@@ -319,8 +319,13 @@ public class iterativeTEST extends OpMode
         leftBack.setPower(leftBackPower*maxSpeed);
         rightFront.setPower(rightFrontPower*maxSpeed);
         rightBack.setPower(rightBackPower*maxSpeed);
-        liftMotorT.setPower(liftPowerT*.4);
-        liftMotorE.setPower(liftPowerE*.4);
+        if(liftPowerT < 0){
+            liftPowerT = liftPowerT*.65;
+        }else{
+            liftPowerT = liftPowerT*.93;
+        }
+        liftMotorT.setPower(liftPowerT);
+        liftMotorE.setPower(liftPowerE);
 
 
         // Show the elapsed game time and wheel power.
