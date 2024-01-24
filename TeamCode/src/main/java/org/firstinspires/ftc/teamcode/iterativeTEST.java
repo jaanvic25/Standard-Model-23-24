@@ -34,12 +34,14 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.util.Encoder;
 
 /**
  * This file contains an example of an iterative (Non-Linear) "OpMode".
@@ -95,6 +97,16 @@ public class iterativeTEST extends OpMode
     Servo servo_spin_l;
     double servo_spin_lpos;
 
+
+    //front right
+    private Encoder rfEncoder = null;
+    //back left
+    private Encoder lbEncoder = null;
+    //lift turn
+    private Encoder lfttEncoder = null;
+    //lift extend
+    private Encoder lfteEncoder = null;
+
     //TODO: fix errors
 
     //in
@@ -108,15 +120,16 @@ public class iterativeTEST extends OpMode
     static final double SERVO_DOOR_LGRAB = .9;
 
     //in
-    static final double SERVO_PLANE_INIT = .4;
+    static final double SERVO_PLANE_INIT = .32;
     //out
     static final double SERVO_PLANE_OUT = 0;
 
-    static final double SERVO_SPIN_RUP = .99;
-    static final double SERVO_SPIN_LUP = .3;
+    static final double SERVO_SPIN_RUP = .6;
+    static final double SERVO_SPIN_LUP = .4;
+    //USING LEFT ONLY
 
-    static final double SERVO_SPIN_RFLAT = .3;
-    static final double SERVO_SPIN_LFLAT = .475;
+    static final double SERVO_SPIN_RFLAT = .4;
+    static final double SERVO_SPIN_LFLAT = .6;
 
     static final double SERVO_STILL = 0;
     /*
@@ -136,6 +149,12 @@ public class iterativeTEST extends OpMode
         liftMotorT = hardwareMap.get(DcMotor.class, "liftMotorT");
         liftMotorE = hardwareMap.get(DcMotor.class, "liftMotorE");
 
+        lfteEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "liftMotorE"));
+        lfttEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "liftMotorT"));
+        rfEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "rightFront"));
+        lbEncoder = new Encoder(hardwareMap.get(DcMotorEx.class, "leftBack"));
+
+
         servo_door_r = hardwareMap.servo.get("servoDoorR");
         servo_door_rpos = SERVO_DOOR_RGRAB;
         servo_door_r.setPosition(servo_door_rpos);
@@ -154,11 +173,11 @@ public class iterativeTEST extends OpMode
 
         servo_spin_r = hardwareMap.servo.get("servoSpinR");
         servo_spin_r.setDirection(Servo.Direction.REVERSE);
-        servo_spin_rpos = SERVO_SPIN_RFLAT;
+        servo_spin_rpos = SERVO_SPIN_RUP;
         servo_spin_r.setPosition(servo_spin_rpos);
 
         servo_spin_l = hardwareMap.servo.get("servoSpinL");
-        servo_spin_lpos = SERVO_SPIN_LFLAT;
+        servo_spin_lpos = SERVO_SPIN_LUP;
         servo_spin_l.setPosition(servo_spin_lpos);
 
         servo_plane = hardwareMap.servo.get("servo_plane");
@@ -319,8 +338,11 @@ public class iterativeTEST extends OpMode
         leftBack.setPower(leftBackPower*maxSpeed);
         rightFront.setPower(rightFrontPower*maxSpeed);
         rightBack.setPower(rightBackPower*maxSpeed);
+
+        liftMotorT.setPower(rrx);
+
         if(liftPowerT < 0){
-            liftPowerT = liftPowerT*.65;
+            liftPowerT = liftPowerT*.5;
         }else{
             liftPowerT = liftPowerT*.93;
         }
@@ -331,12 +353,11 @@ public class iterativeTEST extends OpMode
         // Show the elapsed game time and wheel power.
         telemetry.addData("Status", "Run Time: " + runtime.toString());
         telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftFrontPower, rightFrontPower);
-        telemetry.addData("lf", leftFront.getCurrentPosition());
-        telemetry.addData("rf", rightFront.getCurrentPosition());
-        telemetry.addData("lb", leftBack.getCurrentPosition());
-        telemetry.addData("rb", rightBack.getCurrentPosition());
-        telemetry.addData("LIFT turn", liftMotorT.getCurrentPosition());
-        telemetry.addData("LIFT extend", liftMotorE.getCurrentPosition());
+        telemetry.addData("rf", rfEncoder.getCurrentPosition());
+        telemetry.addData("lb", lbEncoder.getCurrentPosition());
+        telemetry.addData("LIFT turn", lfttEncoder.getCurrentPosition());
+        telemetry.addData("LIFT extend", lfteEncoder
+                .getCurrentPosition());
 
 
 
